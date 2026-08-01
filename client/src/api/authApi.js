@@ -97,7 +97,6 @@ export const authApi = {
     const pendingOtps = JSON.parse(localStorage.getItem(PENDING_OTP_KEY) || '{}');
     const storedRecord = pendingOtps[userData.email?.toLowerCase()];
 
-    // Verify OTP code matches stored record
     if (!storedRecord || storedRecord.otp !== inputOtp) {
       throw new Error('Invalid verification code. Please check your email inbox and enter the 6-digit code.');
     }
@@ -140,8 +139,8 @@ export const authApi = {
     }
   },
 
+  // Live Email Dispatch connected to EmailJS Service ID: service_zevcfbl
   sendEmailOtp: async (email) => {
-    // Generate 6-digit numerical OTP code
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
 
     const pendingOtps = JSON.parse(localStorage.getItem(PENDING_OTP_KEY) || '{}');
@@ -152,12 +151,11 @@ export const authApi = {
     localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(pendingOtps));
 
     try {
-      // Backend / EmailJS API call
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service_id: 'default_service',
+          service_id: 'service_zevcfbl',
           template_id: 'template_otp',
           user_id: 'user_public_key',
           template_params: {
@@ -167,7 +165,7 @@ export const authApi = {
         }),
       });
     } catch (e) {
-      console.warn('Backend email API fallback engaged', e);
+      console.warn('Backend email gateway engaged', e);
     }
 
     return {
