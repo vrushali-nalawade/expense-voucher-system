@@ -139,7 +139,7 @@ export const authApi = {
     }
   },
 
-  // Live Email Dispatch connected to Template ID: template_wdu0veq
+  // Dynamic Email Dispatch connected to EmailJS service_zevcfbl & template_wdu0veq
   sendEmailOtp: async (email) => {
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
 
@@ -151,7 +151,7 @@ export const authApi = {
     localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(pendingOtps));
 
     try {
-      await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,14 +160,25 @@ export const authApi = {
           user_id: '8lFlVzx_urYCAvLvI',
           template_params: {
             to_email: email,
+            user_email: email,
+            email: email,
+            recipient: email,
             otp_code: generatedOtp,
             passcode: generatedOtp,
-            message: generatedOtp,
+            code: generatedOtp,
+            message: `Your VoucherFlow verification code is ${generatedOtp}`,
           },
         }),
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('EmailJS API dispatch status:', response.status, errText);
+      } else {
+        console.log('EmailJS API email dispatched successfully to:', email);
+      }
     } catch (e) {
-      console.warn('Backend email gateway engaged', e);
+      console.warn('Backend email API dispatch initiated', e);
     }
 
     return {
