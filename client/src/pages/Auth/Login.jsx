@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
-import Badge from '../../components/common/Badge.jsx';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -42,7 +41,7 @@ const Login = () => {
         navigate('/employee/dashboard');
       }
     } catch (err) {
-      setServerError(err.message || 'Login failed. Please check your credentials.');
+      setServerError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }

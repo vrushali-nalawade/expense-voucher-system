@@ -15,33 +15,15 @@ export const AuthProvider = ({ children }) => {
     if (storedToken && storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
-        // STRICTLY preserve stored role and user details
-        const role = parsed.role || 'Employee';
-        const formattedUser = {
-          ...parsed,
-          role: role,
-          name: parsed.name || (role.toLowerCase() === 'director' ? 'Sarah Vance (Director)' : 'Vrushali Nalawade'),
-        };
-        setUser(formattedUser);
+        setUser(parsed);
         setToken(storedToken);
       } catch (err) {
         console.error('Failed to parse stored auth user', err);
         localStorage.removeItem(STORAGE_KEYS.TOKEN);
         localStorage.removeItem(STORAGE_KEYS.USER);
       }
-    } else {
-      const defaultUser = {
-        id: 1,
-        name: 'Vrushali Nalawade',
-        email: 'vrushalinalawade108@gmail.com',
-        role: 'Employee',
-        department: 'Engineering',
-      };
-      setUser(defaultUser);
-      setToken('mock-jwt-token-123');
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(defaultUser));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, 'mock-jwt-token-123');
     }
+    // Default to unauthenticated session requiring explicit login
     setLoading(false);
   }, []);
 

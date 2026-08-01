@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const RoleRoute = ({ allowedRoles = [], children }) => {
-  const { user, login, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return <Loader fullPage text="Loading portal session..." />;
@@ -50,46 +50,24 @@ const RoleRoute = ({ allowedRoles = [], children }) => {
   );
 
   if (!isAllowed) {
-    const isDirectorRoute = allowedRoles.includes('Director');
-    if (isDirectorRoute && user) {
-      const directorUser = {
-        ...user,
-        role: 'Director',
-        name: 'Sarah Vance (Director)',
-        email: 'sarah.director@company.com',
-      };
-      login(directorUser, 'mock-jwt-token-123');
-      return children;
-    }
-
-    const isAccountsRoute = allowedRoles.includes('Accounts');
-    if (isAccountsRoute && user) {
-      const accountsUser = {
-        ...user,
-        role: 'Accounts',
-        name: 'David Miller (Accounts)',
-        email: 'david.accounts@company.com',
-      };
-      login(accountsUser, 'mock-jwt-token-123');
-      return children;
-    }
-
     if (userRole === 'director' || userRole === 'admin') {
       return <Navigate to="/director/dashboard" replace />;
     } else if (userRole === 'accounts') {
       return <Navigate to="/accounts/dashboard" replace />;
-    } else {
+    } else if (userRole === 'employee') {
       return <Navigate to="/employee/dashboard" replace />;
     }
+    return <Navigate to="/login" replace />;
   }
 
   return children;
 };
 
 const AppRoutes = () => {
-  const { user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const getDefaultDashboard = () => {
+    if (!isAuthenticated) return '/login';
     const role = user?.role?.toLowerCase();
     if (role === 'director' || role === 'admin') return '/director/dashboard';
     if (role === 'accounts') return '/accounts/dashboard';
@@ -195,7 +173,7 @@ const AppRoutes = () => {
         />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 };

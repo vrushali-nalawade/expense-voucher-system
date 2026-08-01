@@ -1,6 +1,6 @@
 import axiosInstance from './axios.js';
 
-const USERS_STORAGE_KEY = 'voucherflow_registered_users_db';
+const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v2';
 
 const defaultRegisteredUsers = [
   {
@@ -56,12 +56,12 @@ export const authApi = {
       const user = users.find(u => u.email?.toLowerCase() === credentials.email?.toLowerCase());
 
       if (!user) {
-        throw new Error('No user found with this email address. Please register first.');
+        throw new Error('No account found matching this email address. Please register first.');
       }
 
-      // STRICT REAL-WORLD PASSWORD VALIDATION
+      // STRICT PASSWORD VALIDATION: Must match exact signup password
       if (user.password !== credentials.password) {
-        throw new Error('Incorrect password entered. Please try again or click Forgot Password.');
+        throw new Error('Invalid email or password. Please enter the exact password created during sign up.');
       }
 
       return {
@@ -85,7 +85,7 @@ export const authApi = {
       const users = getRegisteredUsers();
       const existing = users.find(u => u.email?.toLowerCase() === userData.email?.toLowerCase());
       if (existing) {
-        throw new Error('An account with this email address already exists.');
+        throw new Error('An account with this email address already exists. Please sign in instead.');
       }
 
       const newUser = {
@@ -129,7 +129,7 @@ export const authApi = {
   requestPasswordReset: async (email) => {
     return {
       success: true,
-      message: `Password reset verification code sent to ${email}`,
+      message: `Password reset OTP token sent to ${email}`,
       demoToken: '123456',
     };
   },

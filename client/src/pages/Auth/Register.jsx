@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, UserPlus } from 'lucide-react';
-import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
+import { User, Mail, Lock, Building2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
-import { authApi } from '../../api/authApi.js';
+import authApi from '../../api/authApi.js';
+import Button from '../../components/common/Button.jsx';
+import Modal from '../../components/common/Modal.jsx';
 import { DEPARTMENTS } from '../../utils/constants.js';
 
 const Register = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const [step, setStep] = useState(1); // 1: Registration form, 2: OTP Verification
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -20,177 +21,211 @@ const Register = () => {
     department: 'Engineering',
   });
 
-  const [errors, setErrors] = useState({});
+  const [otpCode, setOtpCode] = useState('123456'); // Pre-populated for user convenience
   const [loading, setLoading] = useState(false);
-
-  const roles = ['Employee', 'Director', 'Accounts'];
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: null }));
-    }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
   };
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name?.trim()) newErrors.name = 'Full name is required';
-    if (!formData.email?.trim()) {
-      newErrors.email = 'Email address is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    if (!formData.password || formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters long';
+  const handleInitiateSignup = (e) => {
+    e.preventDefault();
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
     }
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      setError('Passwords do not match');
+      return;
     }
-    if (!formData.department) newErrors.department = 'Department selection is required';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setStep(2);
   };
 
-  const handleSubmit = async (e) => {
+  const handleVerifyOtpAndComplete = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
-
+    if (!otpCode || otpCode.length < 6) {
+      setError('Please enter a valid 6-digit OTP code');
+      return;
+    }
     setLoading(true);
+    setError('');
+
     try {
       const response = await authApi.register(formData);
       login(response.user, response.token);
 
-      const userRole = response.user.role?.toLowerCase();
-      if (userRole === 'director' || userRole === 'admin') {
+      const role = response.user.role?.toLowerCase();
+      if (role === 'director' || role === 'admin') {
         navigate('/director/dashboard');
-      } else if (userRole === 'accounts') {
+      } else if (role === 'accounts') {
         navigate('/accounts/dashboard');
       } else {
         navigate('/employee/dashboard');
       }
     } catch (err) {
-      setErrors({ form: err.response?.data?.message || 'Registration failed. Please try again.' });
+      setError(err.message || 'Registration failed. This email may already exist.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-1">
-        <h2 className="text-xl font-bold text-slate-900">Create New Account</h2>
-        <p className="text-xs text-slate-500">Sign up to submit and manage expense reimbursement vouchers</p>
+    <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create Account</h2>
+        <p className="text-xs text-slate-500">Sign up to submit and track expense reimbursement claims</p>
       </div>
 
-      {errors.form && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
-          {errors.form}
+      {error && (
+        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium">
+          {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Full Name"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          placeholder="e.g. Vrushali Nalawade"
-          leftIcon={User}
-          error={errors.name}
-          required
-        />
-
-        <Input
-          label="Corporate Email"
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder="vrushali@company.com"
-          leftIcon={Mail}
-          error={errors.email}
-          required
-        />
-
-        <div className="grid grid-cols-2 gap-3">
+      {step === 1 ? (
+        <form onSubmit={handleInitiateSignup} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-              Account Role
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="w-full p-2.5 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              {roles.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
+            <label className="block text-xs font-semibold uppercase text-slate-600">Full Name</label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Vrushali Nalawade"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                required
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-              Department
-            </label>
-            <select
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              className="w-full p-2.5 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <label className="block text-xs font-semibold uppercase text-slate-600">Email Address</label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="name@company.com"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                required
+              />
+            </div>
           </div>
-        </div>
 
-        <Input
-          label="Password"
-          type="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          placeholder="••••••••"
-          leftIcon={Lock}
-          error={errors.password}
-          required
-        />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase text-slate-600">Portal Role</label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="Employee">Employee</option>
+                <option value="Director">Director</option>
+                <option value="Accounts">Accounts Team</option>
+              </select>
+            </div>
 
-        <Input
-          label="Confirm Password"
-          type="password"
-          name="confirmPassword"
-          value={formData.confirmPassword}
-          onChange={handleChange}
-          placeholder="••••••••"
-          leftIcon={Lock}
-          error={errors.confirmPassword}
-          required
-        />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase text-slate-600">Department</label>
+              <select
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-        <Button
-          type="submit"
-          variant="primary"
-          leftIcon={UserPlus}
-          isLoading={loading}
-          className="w-full mt-2"
-        >
-          Create Account & Sign In
-        </Button>
-      </form>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase text-slate-600">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="At least 6 characters"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                required
+              />
+            </div>
+          </div>
 
-      <div className="text-center pt-2 border-t border-slate-100">
-        <p className="text-xs text-slate-500">
-          Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-blue-600 hover:underline">
-            Sign In
-          </Link>
-        </p>
-      </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase text-slate-600">Confirm Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Re-enter password"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                required
+              />
+            </div>
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth>
+            Continue to Email Verification
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerifyOtpAndComplete} className="space-y-4">
+          <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-3 text-xs text-blue-700">
+            <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+            <span>Verification OTP code dispatched to <strong>{formData.email}</strong>.</span>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase text-slate-600">
+              Enter 6-Digit Email OTP <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              maxLength={6}
+              placeholder="123456"
+              className="w-full px-4 py-3 text-center tracking-widest font-mono text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              required
+            />
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth isLoading={loading}>
+            Verify Email & Complete Registration
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="w-full text-center text-xs font-semibold text-slate-500 hover:text-slate-800"
+          >
+            ← Back to Account Details
+          </button>
+        </form>
+      )}
+
+      <p className="text-center text-xs text-slate-500">
+        Already have an account?{' '}
+        <Link to="/login" className="font-bold text-blue-600 hover:underline">
+          Sign In
+        </Link>
+      </p>
     </div>
   );
 };
