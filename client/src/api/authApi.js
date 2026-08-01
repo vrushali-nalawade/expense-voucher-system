@@ -139,7 +139,7 @@ export const authApi = {
     }
   },
 
-  // Live Email Dispatch connected to EmailJS Service service_zevcfbl & Public Key 8lFlVzx_urYCAvLvI
+  // Live Email Dispatch connected to Template ID: template_wdu0veq
   sendEmailOtp: async (email) => {
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
 
@@ -156,11 +156,13 @@ export const authApi = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service_id: 'service_zevcfbl',
-          template_id: 'template_otp',
+          template_id: 'template_wdu0veq',
           user_id: '8lFlVzx_urYCAvLvI',
           template_params: {
             to_email: email,
             otp_code: generatedOtp,
+            passcode: generatedOtp,
+            message: generatedOtp,
           },
         }),
       });
