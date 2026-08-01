@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
@@ -21,7 +21,6 @@ const Register = () => {
   });
 
   const [otpInput, setOtpInput] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,8 +43,7 @@ const Register = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await authApi.sendEmailOtp(formData.email);
-      setGeneratedOtp(res.generatedOtp);
+      await authApi.sendEmailOtp(formData.email);
       setStep(2);
     } catch (err) {
       setError('Failed to send verification code. Please check your email address.');
@@ -56,15 +54,16 @@ const Register = () => {
 
   const handleVerifyOtpAndComplete = async (e) => {
     e.preventDefault();
-    if (!otpInput || otpInput.trim().length !== 6) {
-      setError('Please enter the 6-digit OTP code sent to your email');
+    const cleanOtp = otpInput.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setError('Please enter the exact 6-digit OTP verification code sent to your email inbox.');
       return;
     }
     setLoading(true);
     setError('');
 
     try {
-      const response = await authApi.register(formData, otpInput.trim());
+      const response = await authApi.register(formData, cleanOtp);
       login(response.user, response.token);
 
       const role = response.user.role?.toLowerCase();
@@ -76,7 +75,7 @@ const Register = () => {
         navigate('/employee/dashboard');
       }
     } catch (err) {
-      setError(err.message || 'Registration failed. Invalid verification code.');
+      setError(err.message || 'Invalid verification code. Please check your email inbox.');
     } finally {
       setLoading(false);
     }
@@ -90,8 +89,9 @@ const Register = () => {
       </div>
 
       {error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium">
-          {error}
+        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-2 text-xs text-rose-700 font-medium">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -200,17 +200,11 @@ const Register = () => {
           <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl space-y-1 text-xs text-blue-700">
             <div className="flex items-center gap-2 font-bold">
               <CheckCircle2 className="w-4 h-4 text-blue-600" />
-              <span>OTP Code Dispatched</span>
+              <span>Verification Email Sent</span>
             </div>
             <p className="text-[11px] text-blue-600/90 leading-relaxed">
-              We sent a 6-digit code to <strong>{formData.email}</strong>.
+              We dispatched a 6-digit verification code to <strong>{formData.email}</strong>. Please check your email inbox (or spam folder).
             </p>
-            {generatedOtp && (
-              <div className="mt-2 p-2 bg-white/80 rounded-xl border border-blue-200 text-center">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Verification Code</span>
-                <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{generatedOtp}</span>
-              </div>
-            )}
           </div>
 
           <div className="space-y-1.5">
@@ -220,9 +214,12 @@ const Register = () => {
             <input
               type="text"
               value={otpInput}
-              onChange={(e) => setOtpInput(e.target.value)}
+              onChange={(e) => {
+                setOtpInput(e.target.value);
+                setError('');
+              }}
               maxLength={6}
-              placeholder="Enter 6-digit OTP"
+              placeholder="Enter 6-digit code from email"
               className="w-full px-4 py-3 text-center tracking-widest font-mono text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               required
             />

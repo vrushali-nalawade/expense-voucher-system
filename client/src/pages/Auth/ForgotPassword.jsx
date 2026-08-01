@@ -6,7 +6,7 @@ import authApi from '../../api/authApi.js';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Email Request, 2: Token & New Password
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -24,9 +24,9 @@ const ForgotPassword = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.requestPasswordReset(email);
-      setMessage(res.message || 'Password reset token sent to your email.');
-      setResetToken(res.demoToken || '123456');
+      await authApi.requestPasswordReset(email);
+      setMessage(`Password reset verification code dispatched to ${email}. Please check your email inbox.`);
+      setResetToken(''); // Leave empty for user to input from email
       setStep(2);
     } catch (err) {
       setError('Failed to process password reset request.');
@@ -37,6 +37,10 @@ const ForgotPassword = () => {
 
   const handleConfirmReset = async (e) => {
     e.preventDefault();
+    if (!resetToken || resetToken.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code sent to your email.');
+      return;
+    }
     if (newPassword.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -48,11 +52,11 @@ const ForgotPassword = () => {
     setLoading(true);
     setError(null);
     try {
-      await authApi.resetPassword({ email, token: resetToken, newPassword });
+      await authApi.resetPassword({ email, token: resetToken.trim(), newPassword });
       setMessage('Password reset successful! Redirecting to login...');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setError('Invalid or expired reset token.');
+      setError('Invalid or expired verification code.');
     } finally {
       setLoading(false);
     }
@@ -68,20 +72,20 @@ const ForgotPassword = () => {
         <p className="text-xs text-slate-500">
           {step === 1
             ? 'Enter your registered email address to receive password recovery instructions.'
-            : 'Enter the verification token sent to your email and choose a new password.'}
+            : 'Enter the verification code sent to your email and choose a new password.'}
         </p>
       </div>
 
       {message && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-2 text-xs text-emerald-700">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{message}</span>
         </div>
       )}
 
       {error && (
         <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-2 text-xs text-rose-700">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
@@ -106,7 +110,7 @@ const ForgotPassword = () => {
           </div>
 
           <Button type="submit" variant="primary" fullWidth isLoading={loading}>
-            Send Reset Instructions
+            Send Reset Verification Code
           </Button>
         </form>
       ) : (
@@ -118,9 +122,12 @@ const ForgotPassword = () => {
             <input
               type="text"
               value={resetToken}
-              onChange={(e) => setResetToken(e.target.value)}
-              placeholder="Enter 6-digit code"
-              className="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              onChange={(e) => {
+                setResetToken(e.target.value);
+                setError(null);
+              }}
+              placeholder="Enter 6-digit code from email"
+              className="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono tracking-widest text-center"
               required
             />
           </div>

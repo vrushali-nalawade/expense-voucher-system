@@ -1,7 +1,7 @@
 import axiosInstance from './axios.js';
 
-const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v3';
-const PENDING_OTP_KEY = 'voucherflow_pending_otp_records';
+const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v4';
+const PENDING_OTP_KEY = 'voucherflow_pending_otp_records_v4';
 
 const defaultRegisteredUsers = [
   {
@@ -47,7 +47,6 @@ const saveRegisteredUsers = (users) => {
   localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 };
 
-// Helper function to decode JWT credentials from real Google OAuth
 const parseJwt = (token) => {
   try {
     const base64Url = token.split('.')[1];
@@ -95,12 +94,12 @@ export const authApi = {
   },
 
   register: async (userData, inputOtp) => {
-    // Validate OTP code against stored pending OTP record
     const pendingOtps = JSON.parse(localStorage.getItem(PENDING_OTP_KEY) || '{}');
     const storedRecord = pendingOtps[userData.email?.toLowerCase()];
 
+    // Verify OTP code matches stored record
     if (!storedRecord || storedRecord.otp !== inputOtp) {
-      throw new Error('Invalid OTP verification code. Please check your email inbox and try again.');
+      throw new Error('Invalid verification code. Please check your email inbox and enter the 6-digit code.');
     }
 
     try {
@@ -125,7 +124,6 @@ export const authApi = {
       const updated = [...users, newUser];
       saveRegisteredUsers(updated);
 
-      // Clean up used OTP code
       delete pendingOtps[userData.email?.toLowerCase()];
       localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(pendingOtps));
 
@@ -142,9 +140,8 @@ export const authApi = {
     }
   },
 
-  // Real Email & OTP Dispatch Service
   sendEmailOtp: async (email) => {
-    // Generate a random 6-digit numerical OTP code
+    // Generate 6-digit numerical OTP code
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
 
     const pendingOtps = JSON.parse(localStorage.getItem(PENDING_OTP_KEY) || '{}');
@@ -155,7 +152,7 @@ export const authApi = {
     localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(pendingOtps));
 
     try {
-      // Send real email dispatch HTTP request to EmailJS service
+      // Backend / EmailJS API call
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,17 +167,15 @@ export const authApi = {
         }),
       });
     } catch (e) {
-      console.warn('Email API fallback initiated', e);
+      console.warn('Backend email API fallback engaged', e);
     }
 
     return {
       success: true,
-      message: `A 6-digit OTP code has been dispatched to ${email}.`,
-      generatedOtp, // Returned so user can verify if email service is delayed
+      message: `A 6-digit OTP verification code has been dispatched to ${email}.`,
     };
   },
 
-  // Real Google OAuth Credential Handler
   handleGoogleCredential: async (credentialToken, role = 'Employee') => {
     const payload = parseJwt(credentialToken);
     if (!payload) {
@@ -225,8 +220,8 @@ export const authApi = {
     const pendingOtps = JSON.parse(localStorage.getItem(PENDING_OTP_KEY) || '{}');
     const storedRecord = pendingOtps[email?.toLowerCase()];
 
-    if (storedRecord && storedRecord.otp !== token) {
-      throw new Error('Invalid OTP verification code.');
+    if (!storedRecord || storedRecord.otp !== token) {
+      throw new Error('Invalid verification code. Please check your email inbox.');
     }
 
     const users = getRegisteredUsers();
