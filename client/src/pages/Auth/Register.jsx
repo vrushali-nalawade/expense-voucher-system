@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, Building2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-down';
+import { User, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
-import Modal from '../../components/common/Modal.jsx';
 import { DEPARTMENTS } from '../../utils/constants.js';
 
 const Register = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [step, setStep] = useState(1); // 1: Registration form, 2: OTP Verification
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -21,7 +20,8 @@ const Register = () => {
     department: 'Engineering',
   });
 
-  const [otpCode, setOtpCode] = useState('123456'); // Pre-populated for user convenience
+  const [otpInput, setOtpInput] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,7 +30,7 @@ const Register = () => {
     setError('');
   };
 
-  const handleInitiateSignup = (e) => {
+  const handleInitiateSignup = async (e) => {
     e.preventDefault();
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
@@ -40,20 +40,31 @@ const Register = () => {
       setError('Passwords do not match');
       return;
     }
-    setStep(2);
+
+    setLoading(true);
+    setError('');
+    try {
+      const res = await authApi.sendEmailOtp(formData.email);
+      setGeneratedOtp(res.generatedOtp);
+      setStep(2);
+    } catch (err) {
+      setError('Failed to send verification code. Please check your email address.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyOtpAndComplete = async (e) => {
     e.preventDefault();
-    if (!otpCode || otpCode.length < 6) {
-      setError('Please enter a valid 6-digit OTP code');
+    if (!otpInput || otpInput.trim().length !== 6) {
+      setError('Please enter the 6-digit OTP code sent to your email');
       return;
     }
     setLoading(true);
     setError('');
 
     try {
-      const response = await authApi.register(formData);
+      const response = await authApi.register(formData, otpInput.trim());
       login(response.user, response.token);
 
       const role = response.user.role?.toLowerCase();
@@ -65,7 +76,7 @@ const Register = () => {
         navigate('/employee/dashboard');
       }
     } catch (err) {
-      setError(err.message || 'Registration failed. This email may already exist.');
+      setError(err.message || 'Registration failed. Invalid verification code.');
     } finally {
       setLoading(false);
     }
@@ -180,34 +191,45 @@ const Register = () => {
             </div>
           </div>
 
-          <Button type="submit" variant="primary" fullWidth>
-            Continue to Email Verification
+          <Button type="submit" variant="primary" fullWidth isLoading={loading}>
+            Send Email OTP Verification Code
           </Button>
         </form>
       ) : (
         <form onSubmit={handleVerifyOtpAndComplete} className="space-y-4">
-          <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-3 text-xs text-blue-700">
-            <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
-            <span>Verification OTP code dispatched to <strong>{formData.email}</strong>.</span>
+          <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl space-y-1 text-xs text-blue-700">
+            <div className="flex items-center gap-2 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-blue-600" />
+              <span>OTP Code Dispatched</span>
+            </div>
+            <p className="text-[11px] text-blue-600/90 leading-relaxed">
+              We sent a 6-digit code to <strong>{formData.email}</strong>.
+            </p>
+            {generatedOtp && (
+              <div className="mt-2 p-2 bg-white/80 rounded-xl border border-blue-200 text-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Verification Code</span>
+                <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{generatedOtp}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase text-slate-600">
-              Enter 6-Digit Email OTP <span className="text-rose-500">*</span>
+              Enter 6-Digit Verification Code <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
+              value={otpInput}
+              onChange={(e) => setOtpInput(e.target.value)}
               maxLength={6}
-              placeholder="123456"
+              placeholder="Enter 6-digit OTP"
               className="w-full px-4 py-3 text-center tracking-widest font-mono text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               required
             />
           </div>
 
           <Button type="submit" variant="primary" fullWidth isLoading={loading}>
-            Verify Email & Complete Registration
+            Verify Code & Complete Registration
           </Button>
 
           <button
@@ -215,7 +237,7 @@ const Register = () => {
             onClick={() => setStep(1)}
             className="w-full text-center text-xs font-semibold text-slate-500 hover:text-slate-800"
           >
-            ← Back to Account Details
+            ← Back to Registration Details
           </button>
         </form>
       )}

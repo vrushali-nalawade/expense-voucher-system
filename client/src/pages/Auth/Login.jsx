@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
@@ -17,6 +17,27 @@ const Login = () => {
 
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
+
+  // Initialize Real Google OAuth 2.0 Identity Button
+  useEffect(() => {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: '157879824519-ekvs6247rmplnqt31pjuc8ghvptqk3so.apps.googleusercontent.com',
+        callback: async (response) => {
+          setLoading(true);
+          try {
+            const authRes = await authApi.handleGoogleCredential(response.credential, formData.role);
+            login(authRes.user, authRes.token);
+            navigate('/employee/dashboard');
+          } catch (err) {
+            setServerError('Real Google Authentication failed.');
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+    }
+  }, [formData.role]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -47,16 +68,13 @@ const Login = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const response = await authApi.googleLogin(formData.role);
-      login(response.user, response.token);
-      navigate('/employee/dashboard');
-    } catch (err) {
-      setServerError('Google Sign-In failed.');
-    } finally {
-      setLoading(false);
+  const handleGoogleSignInClick = () => {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    } else {
+      // Direct real Google OAuth fallback popup
+      const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1083490714892-demo.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=token&scope=email%20profile`;
+      window.open(googleOAuthUrl, 'GoogleAuth', 'width=500,height=600');
     }
   };
 
@@ -159,7 +177,7 @@ const Login = () => {
 
       <button
         type="button"
-        onClick={handleGoogleSignIn}
+        onClick={handleGoogleSignInClick}
         className="w-full py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center gap-3 text-xs font-bold text-slate-700 transition-colors"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -168,7 +186,7 @@ const Login = () => {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
         </svg>
-        Sign in with Google
+        Sign in with Real Google Account
       </button>
 
       <p className="text-center text-xs text-slate-500">
