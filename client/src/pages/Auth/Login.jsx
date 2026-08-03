@@ -10,8 +10,8 @@ const Login = () => {
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
-    email: 'vrushalinalawade108@gmail.com',
-    password: 'password123',
+    email: '',
+    password: '',
     role: 'Employee',
   });
 
@@ -57,9 +57,9 @@ const Login = () => {
 
   const handleRoleSelect = (role) => {
     const demoCredentials = {
-      Employee: { email: 'vrushalinalawade108@gmail.com', password: 'password123' },
-      Director: { email: 'sarah.director@company.com', password: 'password123' },
-      Accounts: { email: 'david.accounts@company.com', password: 'password123' },
+      Employee: { email: 'employee@company.com', password: 'password123' },
+      Director: { email: 'director@company.com', password: 'password123' },
+      Accounts: { email: 'accounts@company.com', password: 'password123' },
     };
     setFormData({
       role,
@@ -96,7 +96,7 @@ const Login = () => {
     <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Sign In to VoucherFlow</h2>
-        <p className="text-xs text-slate-500">Select your portal role tab to sign in to your workspace</p>
+        <p className="text-xs text-slate-500">Select your portal role and enter your credentials</p>
       </div>
 
       <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
