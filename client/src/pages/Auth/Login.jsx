@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
@@ -79,33 +79,29 @@ const Login = () => {
       login(response.user, response.token);
       navigateByRole(response.user.role);
     } catch (err) {
-      setServerError(err.message || 'Invalid credentials for the selected portal role.');
+      setServerError(err.message || `No ${formData.role} account found matching these credentials.`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignInClick = () => {
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt();
-    } else {
-      authApi.handleGoogleCredential(null, formData.role).then((res) => {
-        login(res.user, res.token);
-        navigateByRole(res.user.role);
-      });
-    }
+    authApi.handleGoogleCredential(null, formData.role).then((res) => {
+      login(res.user, res.token);
+      navigateByRole(res.user.role);
+    });
   };
 
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Sign In to VoucherFlow</h2>
-        <p className="text-xs text-slate-500">Select your portal role and enter your account credentials</p>
+        <p className="text-xs text-slate-500">Select your portal role tab to sign in to your workspace</p>
       </div>
 
       <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block text-center">
-          Select Portal Access Role
+          Target Portal Role
         </span>
         <div className="grid grid-cols-3 gap-2">
           {['Employee', 'Director', 'Accounts'].map((role) => (
@@ -177,7 +173,7 @@ const Login = () => {
         </div>
 
         <Button type="submit" variant="primary" fullWidth isLoading={loading} rightIcon={ArrowRight}>
-          Sign In as {formData.role}
+          Sign In to {formData.role} Portal
         </Button>
       </form>
 
@@ -197,7 +193,7 @@ const Login = () => {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
         </svg>
-        Sign in with Google ({formData.role})
+        Sign in with Google ({formData.role} Portal)
       </button>
 
       <p className="text-center text-xs text-slate-500">

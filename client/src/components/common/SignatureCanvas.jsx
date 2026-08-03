@@ -1,85 +1,67 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Eraser, Check, Upload, PenTool } from 'lucide-react';
-import Button from './Button.jsx';
+import { PenTool, CheckCircle2, RotateCcw, Lock, Upload } from 'lucide-react';
 
-const SignatureCanvas = ({ onSaveSignature, initialSignature = null }) => {
+const SignatureCanvas = ({ onSave, initialUrl = null, title = 'Digital E-Signature' }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(true);
-  const [mode, setMode] = useState('draw');
-  const [preview, setPreview] = useState(initialSignature);
+  const [isLocked, setIsLocked] = useState(!!initialUrl);
+  const [signatureUrl, setSignatureUrl] = useState(initialUrl);
 
   useEffect(() => {
-    if (mode === 'draw' && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a'; // Deep slate black stroke
-    }
-  }, [mode]);
-
-  // Exact scale-aware coordinate calculation
-  const getCoordinates = (e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
-  };
+    setSignatureUrl(initialUrl);
+    setIsLocked(!!initialUrl);
+  }, [initialUrl]);
 
   const startDrawing = (e) => {
+    if (isLocked) return;
+    setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const { x, y } = getCoordinates(e);
-
+    const rect = canvas.getBoundingClientRect();
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-    setIsEmpty(false);
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
   };
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawing || isLocked) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const { x, y } = getCoordinates(e);
-
-    ctx.lineTo(x, y);
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
     ctx.stroke();
   };
 
   const stopDrawing = () => {
+    if (!isDrawing || isLocked) return;
     setIsDrawing(false);
   };
 
-  const clearCanvas = () => {
+  const handleClear = () => {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-    setIsEmpty(true);
-    setPreview(null);
-    onSaveSignature && onSaveSignature(null);
+    setSignatureUrl(null);
+    setIsLocked(false);
+    if (onSave) onSave(null);
   };
 
-  const saveSignature = () => {
-    if (canvasRef.current && !isEmpty) {
-      const dataUrl = canvasRef.current.toDataURL('image/png');
-      setPreview(dataUrl);
-      onSaveSignature && onSaveSignature(dataUrl);
+  const handleLockAndVerify = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const dataUrl = canvas.toDataURL('image/png');
+      setSignatureUrl(dataUrl);
+      setIsLocked(true);
+      if (onSave) onSave(dataUrl);
+    } else if (signatureUrl) {
+      setIsLocked(true);
+      if (onSave) onSave(signatureUrl);
     }
   };
 
@@ -88,112 +70,71 @@ const SignatureCanvas = ({ onSaveSignature, initialSignature = null }) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreview(reader.result);
-        onSaveSignature && onSaveSignature(reader.result);
+        setSignatureUrl(reader.result);
+        setIsLocked(true);
+        if (onSave) onSave(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setMode('draw')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            mode === 'draw' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <PenTool className="w-3.5 h-3.5" />
-          <span>Draw E-Signature</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('upload')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            mode === 'upload' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <Upload className="w-3.5 h-3.5" />
-          <span>Upload Image</span>
-        </button>
+    <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-bold uppercase text-slate-700 flex items-center gap-1.5">
+          <PenTool className="w-3.5 h-3.5 text-blue-600" />
+          {title}
+        </span>
+        <div className="flex items-center gap-2">
+          {!isLocked && (
+            <label className="cursor-pointer text-[11px] font-semibold text-blue-600 hover:underline flex items-center gap-1">
+              <Upload className="w-3 h-3" /> Upload Image
+              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+            </label>
+          )}
+          {signatureUrl && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-[11px] font-semibold text-rose-600 hover:underline flex items-center gap-1"
+            >
+              <RotateCcw className="w-3 h-3" /> Clear Signature
+            </button>
+          )}
+        </div>
       </div>
 
-      {mode === 'draw' ? (
+      {isLocked && signatureUrl ? (
+        <div className="p-4 bg-white border border-emerald-200 rounded-xl flex items-center justify-between shadow-xs">
+          <img src={signatureUrl} alt="Verified Digital Signature" className="h-14 object-contain max-w-xs" />
+          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Locked & Verified
+          </span>
+        </div>
+      ) : (
         <div className="space-y-2">
-          <div className="relative border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/50 p-1">
+          <div className="border-2 border-dashed border-slate-300 rounded-xl p-1 bg-white">
             <canvas
               ref={canvasRef}
-              width={600}
-              height={160}
+              width={500}
+              height={120}
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
               onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
-              className="w-full h-40 touch-none cursor-crosshair rounded-xl bg-white"
+              className="w-full h-28 bg-white rounded-lg cursor-crosshair"
             />
-            {isEmpty && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-xs text-slate-400 font-medium">
-                Sign inside the box using mouse or touch screen
-              </div>
-            )}
           </div>
-
-          <div className="flex items-center justify-between">
-            <Button
+          <div className="flex justify-between items-center px-1">
+            <span className="text-[10px] text-slate-400">Draw signature with mouse or touchscreen</span>
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              leftIcon={Eraser}
-              onClick={clearCanvas}
-              disabled={isEmpty}
+              onClick={handleLockAndVerify}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
             >
-              Clear Signature
-            </Button>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={Check}
-              onClick={saveSignature}
-              disabled={isEmpty}
-            >
-              Lock & Verify E-Sign
-            </Button>
+              <Lock className="w-3 h-3" /> Lock & Verify Signature
+            </button>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition-colors">
-          <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
-            <Upload className="w-6 h-6 text-slate-400 mb-1" />
-            <span className="text-xs text-slate-600 font-medium">Click to upload signature image file</span>
-            <span className="text-[11px] text-slate-400 mt-0.5">PNG, JPG or WEBP (Max 2MB)</span>
-            <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-          </label>
-        </div>
-      )}
-
-      {preview && (
-        <div className="p-3 border border-emerald-200 rounded-xl bg-emerald-50/40 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={preview} alt="Verified Signature" className="h-12 object-contain bg-white rounded p-1 border" />
-            <div>
-              <span className="text-xs font-bold text-emerald-800 block">E-Signature Verified</span>
-              <span className="text-[10px] text-emerald-600">Encrypted digital signature attached</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={clearCanvas}
-            className="text-xs text-rose-600 font-semibold hover:underline"
-          >
-            Remove
-          </button>
         </div>
       )}
     </div>

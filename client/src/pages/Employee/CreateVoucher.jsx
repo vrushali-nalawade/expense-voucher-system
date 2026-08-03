@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, DollarSign, Calendar, Tag, CheckCircle2, RotateCcw } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import voucherApi from '../../api/voucherApi.js';
 import Button from '../../components/common/Button.jsx';
+import SignatureCanvas from '../../components/common/SignatureCanvas.jsx';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const CreateVoucher = () => {
@@ -20,58 +20,12 @@ const CreateVoucher = () => {
     employeeSignatureUrl: user?.signature_url || null,
   });
 
-  const [useSavedSignature, setUseSavedSignature] = useState(!!user?.signature_url);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
-  };
-
-  const startDrawing = (e) => {
-    if (useSavedSignature) return;
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing || useSavedSignature) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1e3a8a';
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing || useSavedSignature) return;
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      setFormData((prev) => ({ ...prev, employeeSignatureUrl: canvas.toDataURL() }));
-    }
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    setFormData((prev) => ({ ...prev, employeeSignatureUrl: null }));
-    setUseSavedSignature(false);
   };
 
   const handleSubmit = async (e, submitStatus = 'Submitted') => {
@@ -81,7 +35,7 @@ const CreateVoucher = () => {
       return;
     }
     if (submitStatus === 'Submitted' && !formData.employeeSignatureUrl) {
-      setError('Digital e-signature is mandatory for voucher submission.');
+      setError('A locked and verified digital signature is required before submitting your claim.');
       return;
     }
 
@@ -183,48 +137,11 @@ const CreateVoucher = () => {
           />
         </div>
 
-        <div className="space-y-2 pt-2">
-          <div className="flex justify-between items-center">
-            <label className="block text-xs font-bold uppercase text-slate-700">Digital E-Signature</label>
-            {user?.signature_url && (
-              <button
-                type="button"
-                onClick={() => setUseSavedSignature(!useSavedSignature)}
-                className="text-xs text-blue-600 hover:underline font-semibold"
-              >
-                {useSavedSignature ? 'Draw Custom Signature' : 'Use Saved Profile Signature'}
-              </button>
-            )}
-          </div>
-
-          {useSavedSignature && user?.signature_url ? (
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-              <img src={user.signature_url} alt="Saved Signature" className="h-12 object-contain" />
-              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Profile Signature Active
-              </span>
-            </div>
-          ) : (
-            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-2 bg-slate-50">
-              <canvas
-                ref={canvasRef}
-                width={500}
-                height={120}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                className="w-full h-28 bg-white rounded-xl cursor-crosshair border border-slate-100"
-              />
-              <div className="flex justify-between items-center mt-1 px-2">
-                <span className="text-[10px] text-slate-400">Draw signature above</span>
-                <button type="button" onClick={clearCanvas} className="text-[10px] text-slate-500 hover:text-slate-800 font-semibold">
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <SignatureCanvas
+          initialUrl={formData.employeeSignatureUrl}
+          onSave={(url) => setFormData((prev) => ({ ...prev, employeeSignatureUrl: url }))}
+          title="Employee Digital E-Signature"
+        />
 
         <div className="pt-4 flex items-center justify-end gap-3">
           <Button

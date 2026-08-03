@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, Signature, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, XCircle } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import voucherApi from '../../api/voucherApi.js';
 import Button from '../../components/common/Button.jsx';
 import Modal from '../../components/common/Modal.jsx';
+import SignatureCanvas from '../../components/common/SignatureCanvas.jsx';
 
 const PendingApprovals = () => {
   const { user } = useAuth();
@@ -13,8 +14,6 @@ const PendingApprovals = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [directorSignatureUrl, setDirectorSignatureUrl] = useState(user?.signature_url || null);
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
     fetchPending();
@@ -32,42 +31,13 @@ const PendingApprovals = () => {
     }
   };
 
-  const startDrawing = (e) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1e3a8a';
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      setDirectorSignatureUrl(canvas.toDataURL());
-    }
-  };
-
   const handleApprove = async (voucherId) => {
-    const signature = directorSignatureUrl || user?.signature_url || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    if (!directorSignatureUrl) {
+      alert('Please draw, upload, and lock your Director E-Signature before approving claims.');
+      return;
+    }
     try {
-      await voucherApi.approveVoucher(voucherId, signature);
+      await voucherApi.approveVoucher(voucherId, directorSignatureUrl);
       fetchPending();
     } catch (err) {
       console.error(err);
@@ -93,31 +63,11 @@ const PendingApprovals = () => {
         <p className="text-xs text-slate-500">Review and authorize submitted employee expense reimbursement claims</p>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Executive Director E-Signature Approval Stamp</h2>
-        {directorSignatureUrl ? (
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-            <img src={directorSignatureUrl} alt="Director Signature" className="h-12 object-contain" />
-            <button onClick={() => setDirectorSignatureUrl(null)} className="text-xs text-rose-600 hover:underline font-semibold">
-              Redraw Signature
-            </button>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-2 bg-slate-50">
-            <canvas
-              ref={canvasRef}
-              width={500}
-              height={100}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              className="w-full h-24 bg-white rounded-xl cursor-crosshair border border-slate-100"
-            />
-            <span className="text-[10px] text-slate-400 text-center block mt-1">Draw Director approval signature above</span>
-          </div>
-        )}
-      </div>
+      <SignatureCanvas
+        initialUrl={directorSignatureUrl}
+        onSave={(url) => setDirectorSignatureUrl(url)}
+        title="Executive Director E-Signature Approval Stamp"
+      />
 
       {vouchers.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 text-slate-400">
@@ -136,10 +86,14 @@ const PendingApprovals = () => {
                 <span className="text-sm font-extrabold text-slate-900">₹{parseFloat(voucher.amount).toLocaleString('en-IN')}</span>
               </div>
 
-              {voucher.employeeSignatureUrl && (
-                <div className="p-2 bg-slate-50 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block font-semibold">Employee Signature:</span>
-                  <img src={voucher.employeeSignatureUrl} alt="Employee Signature" className="h-8 object-contain mt-1" />
+              {voucher.employeeSignatureUrl ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase">Employee Signature:</span>
+                  <img src={voucher.employeeSignatureUrl} alt="Employee Signature" className="h-8 object-contain max-w-[150px]" />
+                </div>
+              ) : (
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-100 text-[11px] text-amber-700 font-medium">
+                  No employee signature attached.
                 </div>
               )}
 

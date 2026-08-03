@@ -16,8 +16,8 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'Employee',
-    department: 'Engineering',
+    role: 'Director',
+    department: 'Executive',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -77,7 +77,7 @@ const Register = () => {
         navigate('/employee/dashboard');
       }
     } catch (err) {
-      setError(err.message || 'Invalid verification code. Please check your email inbox.');
+      setError(err.message || 'Registration failed. Invalid verification code.');
     } finally {
       setLoading(false);
     }
@@ -87,11 +87,11 @@ const Register = () => {
     <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create Account</h2>
-        <p className="text-xs text-slate-500">Sign up to access your expense reimbursement portal</p>
+        <p className="text-xs text-slate-500">Register a new account for your selected portal role</p>
       </div>
 
       {error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-2 text-xs text-rose-700 font-medium">
+        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-2 text-xs text-rose-700 font-medium leading-relaxed">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -216,10 +216,10 @@ const Register = () => {
           <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl space-y-1 text-xs text-blue-700">
             <div className="flex items-center gap-2 font-bold">
               <CheckCircle2 className="w-4 h-4 text-blue-600" />
-              <span>Verification Code Sent</span>
+              <span>Verification Code Dispatched</span>
             </div>
             <p className="text-[11px] text-blue-600/90 leading-relaxed">
-              We sent a 6-digit code to <strong>{formData.email}</strong>.
+              We sent a 6-digit verification code to <strong>{formData.email}</strong>.
             </p>
           </div>
 
@@ -235,7 +235,7 @@ const Register = () => {
                 setError('');
               }}
               maxLength={6}
-              placeholder="Enter 6-digit code from email"
+              placeholder="Enter 6-digit code"
               className="w-full px-4 py-3 text-center tracking-widest font-mono text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               required
             />
