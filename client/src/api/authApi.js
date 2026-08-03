@@ -1,13 +1,13 @@
 import axiosInstance from './axios.js';
 
-const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v6';
-const PENDING_OTP_KEY = 'voucherflow_pending_otp_records_v6';
+const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v7';
+const PENDING_OTP_KEY = 'voucherflow_pending_otp_records_v7';
 
 const defaultRegisteredUsers = [
   {
     id: 1,
-    name: 'Vrushali Nalawade',
-    email: 'vrushalinalawade108@gmail.com',
+    name: 'Alex Rivera',
+    email: 'employee@company.com',
     password: 'password123',
     role: 'Employee',
     department: 'Engineering',
@@ -16,7 +16,7 @@ const defaultRegisteredUsers = [
   {
     id: 2,
     name: 'Sarah Vance',
-    email: 'sarah.director@company.com',
+    email: 'director@company.com',
     password: 'password123',
     role: 'Director',
     department: 'Executive',
@@ -25,7 +25,7 @@ const defaultRegisteredUsers = [
   {
     id: 3,
     name: 'David Miller',
-    email: 'david.accounts@company.com',
+    email: 'accounts@company.com',
     password: 'password123',
     role: 'Accounts',
     department: 'Finance',
@@ -74,8 +74,7 @@ export const authApi = {
     } catch (err) {
       const users = getRegisteredUsers();
       const targetRole = credentials.role ? credentials.role.toLowerCase() : 'employee';
-      
-      // Strict Email + Role combo match
+
       const user = users.find((u) => {
         const emailMatch = u.email?.toLowerCase() === credentials.email?.toLowerCase();
         const roleMatch = u.role?.toLowerCase() === targetRole;
@@ -83,7 +82,7 @@ export const authApi = {
       });
 
       if (!user) {
-        throw new Error(`No ${credentials.role} account found for ${credentials.email}. Please register for a ${credentials.role} account or select your registered role.`);
+        throw new Error(`No ${credentials.role} account found for ${credentials.email}. Please register for a ${credentials.role} account.`);
       }
 
       if (user.password !== credentials.password) {
@@ -117,7 +116,6 @@ export const authApi = {
       return response.data;
     } catch (err) {
       const users = getRegisteredUsers();
-      // Allow registering same email under DIFFERENT roles
       const existingSameRole = users.find(
         (u) => u.email?.toLowerCase() === userData.email?.toLowerCase() && u.role?.toLowerCase() === userData.role?.toLowerCase()
       );
@@ -199,7 +197,7 @@ export const authApi = {
   handleGoogleCredential: async (credentialToken, selectedRole = 'Employee') => {
     const payload = parseJwt(credentialToken);
     const email = payload?.email || 'google.user@company.com';
-    const name = payload?.name || (selectedRole === 'Director' ? 'Director User' : selectedRole === 'Accounts' ? 'Accounts User' : 'Google Employee');
+    const name = payload?.name || (selectedRole === 'Director' ? 'Sarah Vance' : selectedRole === 'Accounts' ? 'David Miller' : 'Alex Rivera');
 
     const users = getRegisteredUsers();
     let user = users.find((u) => u.email?.toLowerCase() === email?.toLowerCase() && u.role?.toLowerCase() === selectedRole.toLowerCase());
