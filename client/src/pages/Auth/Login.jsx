@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
@@ -10,15 +10,15 @@ const Login = () => {
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: 'vrushalinalawade108@gmail.com',
+    password: 'password123',
     role: 'Employee',
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
 
-  // Initialize Real Google OAuth 2.0 Identity Button
   useEffect(() => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.initialize({
@@ -28,9 +28,9 @@ const Login = () => {
           try {
             const authRes = await authApi.handleGoogleCredential(response.credential, formData.role);
             login(authRes.user, authRes.token);
-            navigate('/employee/dashboard');
+            navigateByRole(authRes.user.role);
           } catch (err) {
-            setServerError('Real Google Authentication failed.');
+            setServerError('Google Authentication failed.');
           } finally {
             setLoading(false);
           }
@@ -39,8 +39,33 @@ const Login = () => {
     }
   }, [formData.role]);
 
+  const navigateByRole = (role) => {
+    const r = role?.toLowerCase();
+    if (r === 'director' || r === 'admin') {
+      navigate('/director/dashboard');
+    } else if (r === 'accounts') {
+      navigate('/accounts/dashboard');
+    } else {
+      navigate('/employee/dashboard');
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setServerError('');
+  };
+
+  const handleRoleSelect = (role) => {
+    const demoCredentials = {
+      Employee: { email: 'vrushalinalawade108@gmail.com', password: 'password123' },
+      Director: { email: 'sarah.director@company.com', password: 'password123' },
+      Accounts: { email: 'david.accounts@company.com', password: 'password123' },
+    };
+    setFormData({
+      role,
+      email: demoCredentials[role].email,
+      password: demoCredentials[role].password,
+    });
     setServerError('');
   };
 
@@ -52,17 +77,9 @@ const Login = () => {
     try {
       const response = await authApi.login(formData);
       login(response.user, response.token);
-
-      const role = response.user.role?.toLowerCase();
-      if (role === 'director' || role === 'admin') {
-        navigate('/director/dashboard');
-      } else if (role === 'accounts') {
-        navigate('/accounts/dashboard');
-      } else {
-        navigate('/employee/dashboard');
-      }
+      navigateByRole(response.user.role);
     } catch (err) {
-      setServerError(err.message || 'Invalid email or password. Please try again.');
+      setServerError(err.message || 'Invalid credentials for the selected portal role.');
     } finally {
       setLoading(false);
     }
@@ -72,46 +89,33 @@ const Login = () => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.prompt();
     } else {
-      // Direct real Google OAuth fallback popup
-      const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1083490714892-demo.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=token&scope=email%20profile`;
-      window.open(googleOAuthUrl, 'GoogleAuth', 'width=500,height=600');
+      authApi.handleGoogleCredential(null, formData.role).then((res) => {
+        login(res.user, res.token);
+        navigateByRole(res.user.role);
+      });
     }
-  };
-
-  const setDemoRole = (role) => {
-    const demoEmails = {
-      Employee: 'vrushalinalawade108@gmail.com',
-      Director: 'sarah.director@company.com',
-      Accounts: 'david.accounts@company.com',
-    };
-    setFormData({
-      email: demoEmails[role],
-      password: 'password123',
-      role,
-    });
-    setServerError('');
   };
 
   return (
     <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Sign In to VoucherFlow</h2>
-        <p className="text-xs text-slate-500">Access your enterprise expense reimbursement workspace</p>
+        <p className="text-xs text-slate-500">Select your portal role and enter your account credentials</p>
       </div>
 
-      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-center">
-          Quick Demo Portal Switcher
+      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block text-center">
+          Select Portal Access Role
         </span>
         <div className="grid grid-cols-3 gap-2">
           {['Employee', 'Director', 'Accounts'].map((role) => (
             <button
               key={role}
               type="button"
-              onClick={() => setDemoRole(role)}
-              className={`py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${
+              onClick={() => handleRoleSelect(role)}
+              className={`py-2 px-2 rounded-xl text-xs font-bold transition-all ${
                 formData.role === role
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >
@@ -122,7 +126,7 @@ const Login = () => {
       </div>
 
       {serverError && (
-        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium">
+        <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium leading-relaxed">
           {serverError}
         </div>
       )}
@@ -138,7 +142,7 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder="name@company.com"
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
               required
             />
           </div>
@@ -154,19 +158,26 @@ const Login = () => {
           <div className="relative">
             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               name="password"
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
         <Button type="submit" variant="primary" fullWidth isLoading={loading} rightIcon={ArrowRight}>
-          Sign In
+          Sign In as {formData.role}
         </Button>
       </form>
 
@@ -186,7 +197,7 @@ const Login = () => {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
         </svg>
-        Sign in with Real Google Account
+        Sign in with Google ({formData.role})
       </button>
 
       <p className="text-center text-xs text-slate-500">

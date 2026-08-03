@@ -23,7 +23,6 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(STORAGE_KEYS.USER);
       }
     }
-    // Default to unauthenticated session requiring explicit login
     setLoading(false);
   }, []);
 
@@ -32,12 +31,19 @@ export const AuthProvider = ({ children }) => {
     const formattedUser = {
       ...userData,
       role: role,
-      name: userData.name || (role.toLowerCase() === 'director' ? 'Sarah Vance (Director)' : 'Vrushali Nalawade'),
+      name: userData.name || (role.toLowerCase() === 'director' ? 'Sarah Vance' : 'Vrushali Nalawade'),
     };
     setUser(formattedUser);
     setToken(authToken);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(formattedUser));
     localStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
+  };
+
+  const updateUserProfile = (updatedFields) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updatedFields };
+    setUser(updatedUser);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
   };
 
   const logout = () => {
@@ -58,6 +64,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAuthenticated: !!token && !!user,
     login,
+    updateUserProfile,
     logout,
     hasRole,
   };

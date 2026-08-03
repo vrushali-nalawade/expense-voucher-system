@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import authApi from '../../api/authApi.js';
 import Button from '../../components/common/Button.jsx';
@@ -20,6 +20,8 @@ const Register = () => {
     department: 'Engineering',
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpInput, setOtpInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -85,7 +87,7 @@ const Register = () => {
     <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create Account</h2>
-        <p className="text-xs text-slate-500">Sign up to submit and track expense reimbursement claims</p>
+        <p className="text-xs text-slate-500">Sign up to access your expense reimbursement portal</p>
       </div>
 
       {error && (
@@ -106,7 +108,7 @@ const Register = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Vrushali Nalawade"
+                placeholder="Full Name"
                 className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 required
               />
@@ -136,7 +138,7 @@ const Register = () => {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
               >
                 <option value="Employee">Employee</option>
                 <option value="Director">Director</option>
@@ -150,7 +152,7 @@ const Register = () => {
                 name="department"
                 value={formData.department}
                 onChange={handleChange}
-                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
               >
                 {DEPARTMENTS.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
@@ -164,14 +166,21 @@ const Register = () => {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="At least 6 characters"
-                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -180,19 +189,26 @@ const Register = () => {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Re-enter password"
-                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <Button type="submit" variant="primary" fullWidth isLoading={loading}>
-            Send Email OTP Verification Code
+            Send Verification Code
           </Button>
         </form>
       ) : (
@@ -200,16 +216,16 @@ const Register = () => {
           <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-2xl space-y-1 text-xs text-blue-700">
             <div className="flex items-center gap-2 font-bold">
               <CheckCircle2 className="w-4 h-4 text-blue-600" />
-              <span>Verification Email Sent</span>
+              <span>Verification Code Sent</span>
             </div>
             <p className="text-[11px] text-blue-600/90 leading-relaxed">
-              We dispatched a 6-digit verification code to <strong>{formData.email}</strong>. Please check your email inbox (or spam folder).
+              We sent a 6-digit code to <strong>{formData.email}</strong>.
             </p>
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase text-slate-600">
-              Enter 6-Digit Verification Code <span className="text-rose-500">*</span>
+              Enter 6-Digit Code <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"

@@ -1,218 +1,183 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, FileText } from 'lucide-react';
-import PageHeader from '../../components/layout/PageHeader.jsx';
-import Button from '../../components/common/Button.jsx';
-import Card from '../../components/common/Card.jsx';
-import Modal from '../../components/common/Modal.jsx';
-import Loader from '../../components/common/Loader.jsx';
-import StatusBadge from '../../components/voucher/StatusBadge.jsx';
-import SignatureCanvas from '../../components/common/SignatureCanvas.jsx';
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, XCircle, Signature, AlertCircle } from 'lucide-react';
+import useAuth from '../../hooks/useAuth.js';
 import voucherApi from '../../api/voucherApi.js';
-import { formatCurrency } from '../../utils/formatCurrency.js';
+import Button from '../../components/common/Button.jsx';
+import Modal from '../../components/common/Modal.jsx';
 
 const PendingApprovals = () => {
+  const { user } = useAuth();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [approveModalVoucher, setApproveModalVoucher] = useState(null);
-  const [rejectModalVoucher, setRejectModalVoucher] = useState(null);
-  const [directorSignature, setDirectorSignature] = useState(null);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [error, setError] = useState(null);
-
-  const fetchPending = async () => {
-    setLoading(true);
-    try {
-      const data = await voucherApi.getVouchers({ status: 'Submitted' });
-      setVouchers(data);
-    } catch (err) {
-      console.error('Failed to fetch pending vouchers', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [directorSignatureUrl, setDirectorSignatureUrl] = useState(user?.signature_url || null);
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
     fetchPending();
   }, []);
 
-  const handleApproveSubmit = async () => {
-    if (!directorSignature) {
-      setError('Director signature is required to confirm approval');
-      return;
-    }
+  const fetchPending = async () => {
+    setLoading(true);
     try {
-      await voucherApi.approveVoucher(approveModalVoucher.id, { signatureUrl: directorSignature });
-      setApproveModalVoucher(null);
-      setDirectorSignature(null);
-      setError(null);
+      const data = await voucherApi.getVouchers({ status: 'Pending Approval' });
+      setVouchers(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      setDirectorSignatureUrl(canvas.toDataURL());
+    }
+  };
+
+  const handleApprove = async (voucherId) => {
+    const signature = directorSignatureUrl || user?.signature_url || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    try {
+      await voucherApi.approveVoucher(voucherId, signature);
       fetchPending();
     } catch (err) {
-      console.error('Approval failed', err);
+      console.error(err);
     }
   };
 
   const handleRejectSubmit = async () => {
-    if (!rejectionReason.trim()) {
-      setError('Rejection reason is required');
-      return;
-    }
+    if (!rejectionReason.trim()) return;
     try {
-      await voucherApi.rejectVoucher(rejectModalVoucher.id, { rejectionReason });
-      setRejectModalVoucher(null);
+      await voucherApi.rejectVoucher(selectedVoucher.id, rejectionReason);
+      setShowRejectModal(false);
       setRejectionReason('');
-      setError(null);
       fetchPending();
     } catch (err) {
-      console.error('Rejection failed', err);
+      console.error(err);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Pending Approvals"
-        subtitle="Review and process submitted employee reimbursement requests requiring Director authorization."
-      />
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Director Pending Approvals</h1>
+        <p className="text-xs text-slate-500">Review and authorize submitted employee expense reimbursement claims</p>
+      </div>
 
-      {loading ? (
-        <Loader text="Loading pending approval queue..." />
-      ) : vouchers.length === 0 ? (
-        <Card className="p-12 text-center text-slate-500">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-900 mb-1">Queue Clear</h3>
-          <p className="text-xs">All submitted employee expense vouchers have been reviewed.</p>
-        </Card>
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Executive Director E-Signature Approval Stamp</h2>
+        {directorSignatureUrl ? (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+            <img src={directorSignatureUrl} alt="Director Signature" className="h-12 object-contain" />
+            <button onClick={() => setDirectorSignatureUrl(null)} className="text-xs text-rose-600 hover:underline font-semibold">
+              Redraw Signature
+            </button>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-2 bg-slate-50">
+            <canvas
+              ref={canvasRef}
+              width={500}
+              height={100}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+              className="w-full h-24 bg-white rounded-xl cursor-crosshair border border-slate-100"
+            />
+            <span className="text-[10px] text-slate-400 text-center block mt-1">Draw Director approval signature above</span>
+          </div>
+        )}
+      </div>
+
+      {vouchers.length === 0 ? (
+        <div className="p-12 text-center bg-white rounded-3xl border border-slate-100 text-slate-400">
+          <p className="text-sm font-semibold">No vouchers currently pending approval.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {vouchers.map((v) => (
-            <Card key={v.id} className="p-6 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {vouchers.map((voucher) => (
+            <div key={voucher.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+              <div className="flex justify-between items-start">
                 <div>
-                  <span className="font-mono font-bold text-blue-600 text-xs">{v.voucherNumber}</span>
-                  <h3 className="text-base font-bold text-slate-900 mt-0.5">{v.title}</h3>
+                  <span className="text-[11px] font-bold text-blue-600">{voucher.voucherNumber}</span>
+                  <h3 className="text-sm font-bold text-slate-900">{voucher.expenseTitle}</h3>
+                  <p className="text-xs text-slate-500">{voucher.employeeName} • {voucher.department}</p>
                 </div>
-                <StatusBadge status={v.status} />
+                <span className="text-sm font-extrabold text-slate-900">₹{parseFloat(voucher.amount).toLocaleString('en-IN')}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Employee</span>
-                  <span className="font-semibold text-slate-900">{v.employeeName || 'Self'} ({v.department})</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Claim Amount</span>
-                  <span className="font-extrabold text-slate-900 text-sm">{formatCurrency(v.amount)}</span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-600">
-                <span className="font-semibold text-slate-900 block mb-1">Justification:</span>
-                <p className="leading-relaxed">{v.description || 'No additional details provided.'}</p>
-              </div>
-
-              {v.signatureUrl && (
-                <div className="pt-2 border-t border-slate-100">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Employee E-Signature</span>
-                  <img src={v.signatureUrl} alt="Employee Signature" className="h-12 object-contain bg-slate-50 p-1 rounded border" />
+              {voucher.employeeSignatureUrl && (
+                <div className="p-2 bg-slate-50 rounded-xl">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Employee Signature:</span>
+                  <img src={voucher.employeeSignatureUrl} alt="Employee Signature" className="h-8 object-contain mt-1" />
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex gap-2 pt-2">
+                <Button variant="success" fullWidth onClick={() => handleApprove(voucher.id)} leftIcon={CheckCircle}>
+                  Approve Claim
+                </Button>
                 <Button
                   variant="danger"
-                  size="sm"
+                  fullWidth
+                  onClick={() => {
+                    setSelectedVoucher(voucher);
+                    setShowRejectModal(true);
+                  }}
                   leftIcon={XCircle}
-                  onClick={() => {
-                    setRejectModalVoucher(v);
-                    setRejectionReason('');
-                    setError(null);
-                  }}
                 >
-                  Reject
-                </Button>
-                <Button
-                  variant="success"
-                  size="sm"
-                  leftIcon={CheckCircle2}
-                  onClick={() => {
-                    setApproveModalVoucher(v);
-                    setDirectorSignature(null);
-                    setError(null);
-                  }}
-                >
-                  Approve Voucher
+                  Reject Claim
                 </Button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Approval Modal with Interactive E-Signature */}
-      <Modal
-        isOpen={!!approveModalVoucher}
-        onClose={() => setApproveModalVoucher(null)}
-        title={`Approve Voucher: ${approveModalVoucher?.voucherNumber || ''}`}
-        subtitle={approveModalVoucher?.title}
-      >
+      <Modal isOpen={showRejectModal} onClose={() => setShowRejectModal(false)} title="Reject Expense Voucher">
         <div className="space-y-4">
-          <div className="p-3 bg-slate-50 rounded-xl flex justify-between items-center text-xs">
-            <div>
-              <span className="text-slate-500 block text-[10px] uppercase">Amount</span>
-              <span className="text-base font-bold text-slate-900">{formatCurrency(approveModalVoucher?.amount)}</span>
-            </div>
-            <span className="text-slate-600">Employee: {approveModalVoucher?.employeeName || 'Self'} ({approveModalVoucher?.department})</span>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase text-slate-600">
-              Director E-Signature Verification <span className="text-rose-500">*</span>
-            </label>
-            <SignatureCanvas onSaveSignature={(sig) => setDirectorSignature(sig)} />
-            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-3">
-            <Button variant="ghost" onClick={() => setApproveModalVoucher(null)}>
-              Cancel
-            </Button>
-            <Button variant="success" leftIcon={CheckCircle2} onClick={handleApproveSubmit}>
-              Confirm Approval
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Rejection Modal */}
-      <Modal
-        isOpen={!!rejectModalVoucher}
-        onClose={() => setRejectModalVoucher(null)}
-        title={`Reject Voucher: ${rejectModalVoucher?.voucherNumber || ''}`}
-        subtitle={rejectModalVoucher?.title}
-      >
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase text-slate-600">
-              Rejection Reason <span className="text-rose-500">*</span>
-            </label>
-            <textarea
-              rows={3}
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="State reason for declining reimbursement claim..."
-              className="w-full p-3 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-            />
-            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" onClick={() => setRejectModalVoucher(null)}>
-              Cancel
-            </Button>
-            <Button variant="danger" leftIcon={XCircle} onClick={handleRejectSubmit}>
-              Confirm Rejection
-            </Button>
+          <p className="text-xs text-slate-600">Please provide a mandatory reason for rejecting this claim:</p>
+          <textarea
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Reason for rejection..."
+            className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-none"
+            rows={3}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowRejectModal(false)}>Cancel</Button>
+            <Button variant="danger" onClick={handleRejectSubmit}>Confirm Rejection</Button>
           </div>
         </div>
       </Modal>

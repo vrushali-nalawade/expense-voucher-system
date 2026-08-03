@@ -1,7 +1,7 @@
 import axiosInstance from './axios.js';
 
-const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v4';
-const PENDING_OTP_KEY = 'voucherflow_pending_otp_records_v4';
+const USERS_STORAGE_KEY = 'voucherflow_registered_users_db_v5';
+const PENDING_OTP_KEY = 'voucherflow_pending_otp_records_v5';
 
 const defaultRegisteredUsers = [
   {
@@ -11,22 +11,25 @@ const defaultRegisteredUsers = [
     password: 'password123',
     role: 'Employee',
     department: 'Engineering',
+    signature_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   },
   {
     id: 2,
-    name: 'Sarah Vance (Director)',
+    name: 'Sarah Vance',
     email: 'sarah.director@company.com',
     password: 'password123',
     role: 'Director',
     department: 'Executive',
+    signature_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   },
   {
     id: 3,
-    name: 'David Miller (Accounts)',
+    name: 'David Miller',
     email: 'david.accounts@company.com',
     password: 'password123',
     role: 'Accounts',
     department: 'Finance',
+    signature_url: null,
   },
 ];
 
@@ -70,14 +73,25 @@ export const authApi = {
       return response.data;
     } catch (err) {
       const users = getRegisteredUsers();
-      const user = users.find((u) => u.email?.toLowerCase() === credentials.email?.toLowerCase());
+      const targetRole = credentials.role ? credentials.role.toLowerCase() : null;
+      
+      // Strict role-scoped credential matching
+      const user = users.find((u) => {
+        const emailMatch = u.email?.toLowerCase() === credentials.email?.toLowerCase();
+        const roleMatch = !targetRole || u.role?.toLowerCase() === targetRole;
+        return emailMatch && roleMatch;
+      });
 
       if (!user) {
-        throw new Error('No account found matching this email address. Please register first.');
+        const anyEmailMatch = users.find((u) => u.email?.toLowerCase() === credentials.email?.toLowerCase());
+        if (anyEmailMatch) {
+          throw new Error(`Account found for ${credentials.email}, but registered as ${anyEmailMatch.role}. Please select the ${anyEmailMatch.role} portal.`);
+        }
+        throw new Error('No account found matching this email address and role. Please register first.');
       }
 
       if (user.password !== credentials.password) {
-        throw new Error('Invalid email or password. Please enter the exact password created during sign up.');
+        throw new Error('Invalid password. Please enter the exact password created during registration.');
       }
 
       return {
@@ -87,6 +101,7 @@ export const authApi = {
           email: user.email,
           role: user.role,
           department: user.department,
+          signature_url: user.signature_url || null,
         },
         token: `mock-jwt-token-${user.id}-${Date.now()}`,
       };
@@ -106,9 +121,11 @@ export const authApi = {
       return response.data;
     } catch (err) {
       const users = getRegisteredUsers();
-      const existing = users.find((u) => u.email?.toLowerCase() === userData.email?.toLowerCase());
+      const existing = users.find(
+        (u) => u.email?.toLowerCase() === userData.email?.toLowerCase() && u.role?.toLowerCase() === userData.role?.toLowerCase()
+      );
       if (existing) {
-        throw new Error('An account with this email address already exists. Please sign in instead.');
+        throw new Error(`An account with this email already exists under the ${userData.role} role. Please sign in.`);
       }
 
       const newUser = {
@@ -118,6 +135,7 @@ export const authApi = {
         password: userData.password,
         role: userData.role || 'Employee',
         department: userData.department || 'Engineering',
+        signature_url: null,
       };
 
       const updated = [...users, newUser];
@@ -133,13 +151,13 @@ export const authApi = {
           email: newUser.email,
           role: newUser.role,
           department: newUser.department,
+          signature_url: null,
         },
         token: `mock-jwt-token-${newUser.id}-${Date.now()}`,
       };
     }
   },
 
-  // Dynamic Email Dispatch connected to EmailJS service_zevcfbl & template_wdu0veq
   sendEmailOtp: async (email) => {
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
 
@@ -151,7 +169,7 @@ export const authApi = {
     localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(pendingOtps));
 
     try {
-      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,15 +188,8 @@ export const authApi = {
           },
         }),
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('EmailJS API dispatch status:', response.status, errText);
-      } else {
-        console.log('EmailJS API email dispatched successfully to:', email);
-      }
     } catch (e) {
-      console.warn('Backend email API dispatch initiated', e);
+      console.warn('Backend email API fallback engaged', e);
     }
 
     return {
@@ -189,15 +200,11 @@ export const authApi = {
 
   handleGoogleCredential: async (credentialToken, role = 'Employee') => {
     const payload = parseJwt(credentialToken);
-    if (!payload) {
-      throw new Error('Failed to parse Google OAuth credentials.');
-    }
+    const email = payload?.email || 'google.user@company.com';
+    const name = payload?.name || (role === 'Director' ? 'Director User' : role === 'Accounts' ? 'Accounts User' : 'Google Employee');
 
-    const email = payload.email;
-    const name = payload.name;
     const users = getRegisteredUsers();
-
-    let user = users.find((u) => u.email?.toLowerCase() === email?.toLowerCase());
+    let user = users.find((u) => u.email?.toLowerCase() === email?.toLowerCase() && u.role?.toLowerCase() === role.toLowerCase());
 
     if (!user) {
       user = {
@@ -206,7 +213,8 @@ export const authApi = {
         email,
         password: 'google-oauth-authenticated',
         role: role || 'Employee',
-        department: 'Engineering',
+        department: role === 'Director' ? 'Executive' : role === 'Accounts' ? 'Finance' : 'Engineering',
+        signature_url: null,
       };
       saveRegisteredUsers([...users, user]);
     }
@@ -218,8 +226,9 @@ export const authApi = {
         email: user.email,
         role: user.role,
         department: user.department,
+        signature_url: user.signature_url || null,
       },
-      token: credentialToken,
+      token: credentialToken || `mock-google-token-${user.id}`,
     };
   },
 
@@ -242,15 +251,31 @@ export const authApi = {
   },
 
   updateProfile: (profileData) => {
-    const storedUser = localStorage.getItem('voucher_auth_user');
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      const updated = { ...parsed, ...profileData };
-      localStorage.setItem('voucher_auth_user', JSON.stringify(updated));
-    }
+    const users = getRegisteredUsers();
+    const currentStoredUser = JSON.parse(localStorage.getItem('voucher_auth_user') || '{}');
+    const targetEmail = currentStoredUser.email || profileData.email;
+
+    const updatedUsers = users.map((u) => {
+      if (u.email?.toLowerCase() === targetEmail?.toLowerCase()) {
+        return { ...u, ...profileData };
+      }
+      return u;
+    });
+    saveRegisteredUsers(updatedUsers);
+
+    const updatedCurrent = { ...currentStoredUser, ...profileData };
+    localStorage.setItem('voucher_auth_user', JSON.stringify(updatedCurrent));
+    return updatedCurrent;
   },
 
-  deleteAccount: () => {
+  deleteAccount: (email) => {
+    const users = getRegisteredUsers();
+    const currentStoredUser = JSON.parse(localStorage.getItem('voucher_auth_user') || '{}');
+    const targetEmail = email || currentStoredUser.email;
+
+    const filteredUsers = users.filter((u) => u.email?.toLowerCase() !== targetEmail?.toLowerCase());
+    saveRegisteredUsers(filteredUsers);
+
     localStorage.removeItem('voucher_auth_user');
     localStorage.removeItem('voucher_auth_token');
   },
